@@ -1,0 +1,136 @@
+import nmap
+from pymetasploit3.msfrpc import MsfRpcClient
+from scapy.all import ARP, Ether, srp
+import subprocess
+targetlistIP = []  # Initialize the IP list outside the loop
+
+
+# Function to perform an ARP scan
+def arp_scan(target_ip):
+    
+    # Create an ARP request packet
+    # The ARP request is sent to the broadcast MAC address (ff:ff:ff:ff:ff:ff)
+    # and asks for the IP addresses in the target_ip range.
+    ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=target_ip), timeout=2, retry=1)
+    # Iterate over the answered packets
+    for snd, rcv in ans:
+        # Print the IP and MAC address of each responding device
+        print(f"IP: {rcv.psrc} MAC: {rcv.hwsrc}")
+
+# 1 TCP,O.S. AND SERVICES SCANNING
+def run_nmap_scan1(targetlistIP):
+    for target in targetlistIP:
+        # Nmap command
+        command = ["nmap", "-sS", "-sV", "-O", target]
+
+        try:
+            # Execute the Nmap command
+            result = subprocess.run(command, capture_output=True, text=True)
+
+            # Check if the command was successful
+            if result.returncode == 0:
+                print(f"Nmap scan completed successfully for {target}:")
+                print(result.stdout)
+            else:
+                print(f"Error running Nmap scan for {target}:")
+                print(result.stderr)
+        except Exception as e:
+            print(f"An error occurred while running the scan for {target}: {e}")
+
+
+
+# Initial menu
+inicial_menu = ("""  
+                            -/-/- WELCOME -/-/-
+                   
+                            Type the ID or write your option:
+                   
+                            1. Define Target (TargetIP)
+                            2. Scann 
+                            3. Exploitation
+                            4. Show options""")
+print(inicial_menu)
+first = input("INPUT:")
+ini = 1  # Initialize `ini` to 1 to enter the loop
+
+while ini > 0:
+    if first == '1' or first == 'TargetIP' or first == 'Define Target':
+        addtarget = input("Target IP:")    
+        targetlistIP.append(addtarget)
+        print("Target List:")
+        print(targetlistIP)
+        # Return to the initial menu after defining the target
+        first = input("INPUT:")
+
+    elif first == "2" or first == "Scann":
+        while True:
+            scan_menu = ("""TYPE OPTION:
+                1.ARP_SCAN
+                2.NMAP_SCAN
+                3.gobuster
+               type "back" to return
+              /-/-/-/-/-/-/-/""")
+            print(scan_menu)
+            input_scan = input("TYPE OPTION:")
+            if input_scan == "back":
+                break  # Exit the scan menu and return to the initial menu
+            elif input_scan == "1" or input_scan == "1.ARP_SCAN" or input_scan == "ARP_SCAN":
+                if len(targetlistIP) > 0:
+                    arp_scan(targetlistIP[0])  # Perform ARP scan on the first IP in the list
+                else:
+                    print("""-/-/-/-THE IP LIST IS EMPTY-/-/-/-/
+                         TYPE THE IP OR TYPE 
+                         'BACK' TO RETURN TO 
+               -/-/-/-/-/-/THE INITIAL MENU-/-/-/-/-/-/-/""")
+                    input_ipscan = input("IP NUMBER: ")
+                    if input_ipscan == "back":
+                        break  # Return to the scan menu
+                    else:
+                        targetlistIP.append(input_ipscan)  # Add the IP to the list
+            elif input_scan == "2" or input_scan == "2.NMAP_SCAN" or input_scan == "NMAP_SCAN":
+                print("""NMAP OPTIONS 
+                         .1 TCP,O.S. AND SERVICES SCANNING
+                         .2 SCRIPT
+                         .3 TCP PORT SCANNING WITH VULNERABILITIES SEARCH
+                         .4 TYPE "back" TO RETURN """)  # Add NMAP_SCAN logic here
+                
+                nmap_input=input("Choose Option:")
+
+
+                while True:
+                    if nmap_input == "back" or nmap_input == "BACK" or nmap_input == "Back":
+                        break
+                    if nmap_input == "1" or nmap_input == ".1" or nmap_input == "TCP,OS AND SERVICES SCANNING":
+                        if len(targetlistIP) > 0:
+                            run_nmap_scan1(targetlistIP)
+                        else:
+                            print("""-/-/-/-THE IP LIST IS EMPTY-/-/-/-/
+                                            TYPE THE IP OR TYPE 
+                                            'BACK' TO RETURN TO 
+                                 -/-/-/-/-/-/THE INITIAL MENU-/-/-/-/-/-/-/""")
+                            input_IPnmap=input("Type the IP:")
+
+                        if len(input_IPnmap) > 0:
+                            targetlistIP.append(input_IPnmap)
+                            run_nmap_scan1(targetlistIP)
+                        if len(input_IPnmap) == 0 or input_IPnmap == "back" or input_IPnmap == "BACK":
+                            break   
+
+
+                    
+
+
+            elif input_scan == "3" or input_scan == "3.gobuster" or input_scan == "gobuster":
+                print("gobuster selected.")  # Add gobuster logic here
+            else:
+                print("Invalid option. Try again.")
+        # Return to the initial menu after exiting the scan menu
+        first = input("INPUT:")
+
+    else:
+        print("Invalid option. Try again.")
+        # Return to the initial menu after an invalid option
+        first = input("INPUT:")
+
+start=False
+if start == True:
