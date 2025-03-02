@@ -17,7 +17,7 @@ def arp_scan(target_ip):
         # Print the IP and MAC address of each responding device
         print(f"IP: {rcv.psrc} MAC: {rcv.hwsrc}")
 
-# 1 TCP,O.S. AND SERVICES SCANNING
+# 1 NMAP TCP,O.S. AND SERVICES SCANNING
 def run_nmap_scan1(targetlistIP):
     for target in targetlistIP:
         # Nmap command
@@ -37,7 +37,28 @@ def run_nmap_scan1(targetlistIP):
         except Exception as e:
             print(f"An error occurred while running the scan for {target}: {e}")
 
+# Nmap scan with the http-sql-injection and ftp-anon scripts.
+def run_nmap_scripts1(targetlistIP):
 
+    """
+    Run an Nmap scan with the http-sql-injection and ftp-anon scripts.
+
+    Args:
+        target (str): The target IP address or range to scan.
+    """
+    print(f"[*] Starting Nmap scan on {targetlistIP} with http-sql-injection and ftp-anon scripts...")
+    
+    # Create an Nmap PortScanner object
+    nm = nmap.PortScanner()
+    
+    # Perform the scan with the specified scripts
+    nm.scan(targetlistIP, arguments='--script=http-sql-injection,ftp-anon')
+    
+    # Print the results
+    print(f"[+] Nmap scan results for {targetlistIP}:")
+    for host in nm.all_hosts():
+        print(f"Host: {host} ({nm[host].hostname()})")
+        print(f"State: {nm[host].state()}")
 
 # Initial menu
 inicial_menu = ("""  
@@ -90,7 +111,7 @@ while ini > 0:
             elif input_scan == "2" or input_scan == "2.NMAP_SCAN" or input_scan == "NMAP_SCAN":
                 print("""NMAP OPTIONS 
                          .1 TCP,O.S. AND SERVICES SCANNING
-                         .2 SCRIPT
+                         .2 SCRIPTS
                          .3 TCP PORT SCANNING WITH VULNERABILITIES SEARCH
                          .4 TYPE "back" TO RETURN """)  # Add NMAP_SCAN logic here
                 
@@ -103,6 +124,7 @@ while ini > 0:
                     if nmap_input == "1" or nmap_input == ".1" or nmap_input == "TCP,OS AND SERVICES SCANNING":
                         if len(targetlistIP) > 0:
                             run_nmap_scan1(targetlistIP)
+                            break
                         else:
                             print("""-/-/-/-THE IP LIST IS EMPTY-/-/-/-/
                                             TYPE THE IP OR TYPE 
@@ -112,9 +134,37 @@ while ini > 0:
 
                         if len(input_IPnmap) > 0:
                             targetlistIP.append(input_IPnmap)
-                            run_nmap_scan1(targetlistIP)
+                          #1  run_nmap_scan1(targetlistIP)
                         if len(input_IPnmap) == 0 or input_IPnmap == "back" or input_IPnmap == "BACK":
                             break   
+
+                    if nmap_input == "2" or nmap_input == "script" or nmap_input == "SCRIPT":
+                        print(""" 1.Vulnerability Detection:
+                                        http-sql-injection: Attempts to identify SQL injection vulnerabilities in web applications.
+                                        ftp-anon: Checks if the FTP service allows anonymous access."""
+                        )
+                        input_script=input("INPUT:")
+
+                        while True:
+                            
+                            if input_script == "1" or input_script == "Vulnerability Detection":
+                                
+                                if len(targetlistIP) > 0:
+                                     print("Running Nmap scripts for vulnerability detection...")
+                                     run_nmap_scripts1(targetlistIP)
+                                else: 
+                                     print("""-/-/-/-THE IP LIST IS EMPTY-/-/-/-/
+                                            TYPE THE IP OR TYPE 
+                                            'BACK' TO RETURN TO 
+                                     -/-/-/-/-/-/THE INITIAL MENU-/-/-/-/-/-/-/""")
+                                     input_script=input("INPUT:")
+                                if len(input_script) > 0:
+                                    targetlistIP.append(input_script)
+                                    
+                                if  len(input_script) == 0 or input_script == "back" or input_script == "BACK":
+                                    break
+
+                                 
 
 
                     
@@ -126,11 +176,3 @@ while ini > 0:
                 print("Invalid option. Try again.")
         # Return to the initial menu after exiting the scan menu
         first = input("INPUT:")
-
-    else:
-        print("Invalid option. Try again.")
-        # Return to the initial menu after an invalid option
-        first = input("INPUT:")
-
-start=False
-if start == True:
