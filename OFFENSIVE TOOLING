@@ -1,0 +1,302 @@
+import nmap
+from pymetasploit3.msfrpc import MsfRpcClient
+from scapy.all import ARP, Ether, srp
+import subprocess
+targetlistIP = []  # Initialize the IP list outside the loop
+
+
+# Function to perform an ARP scan
+def arp_scan(target_ip):
+    
+    # Create an ARP request packet
+    # The ARP request is sent to the broadcast MAC address (ff:ff:ff:ff:ff:ff)
+    # and asks for the IP addresses in the target_ip range.
+    ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=target_ip), timeout=2, retry=1)
+    # Iterate over the answered packets
+    for snd, rcv in ans:
+        # Print the IP and MAC address of each responding device
+        print(f"IP: {rcv.psrc} MAC: {rcv.hwsrc}")
+
+# 1 NMAP TCP,O.S. AND SERVICES SCANNING
+def run_nmap_scan1(targetlistIP):
+    for target in targetlistIP:
+        # Nmap command
+        command = ["nmap", "-sS", "-sV", "-O", target]
+
+        try:
+            # Execute the Nmap command
+            result = subprocess.run(command, capture_output=True, text=True)
+
+            # Check if the command was successful
+            if result.returncode == 0:
+                print(f"Nmap scan completed successfully for {target}:")
+                print(result.stdout)
+            else:
+                print(f"Error running Nmap scan for {target}:")
+                print(result.stderr)
+        except Exception as e:
+            print(f"An error occurred while running the scan for {target}: {e}")
+
+# Nmap scan with the http-sql-injection and ftp-anon scripts.
+def run_nmap_scripts1(targetlistIP):
+
+    """
+    Run an Nmap scan with the http-sql-injection and ftp-anon scripts.
+
+    Args:
+        target (str): The target IP address or range to scan.
+    """
+    print(f"Starting Nmap scan on {targetlistIP} with http-sql-injection and ftp-anon scripts...")
+    
+    # Create an Nmap PortScanner object
+    nm = nmap.PortScanner()
+    
+    # Perform the scan with the specified scripts
+    nm.scan(targetlistIP, arguments='--script=http-sql-injection,ftp-anon')
+    
+    # Print the results
+    print(f"[+] Nmap scan results for {targetlistIP}:")
+    for host in nm.all_hosts():
+        print(f"Host: {host} ({nm[host].hostname()})")
+        print(f"State: {nm[host].state()}")
+
+def run_nmap_scrpts2(targetlistIP):
+    # Initialize the Nmap PortScanner object
+    nm = nmap.PortScanner()
+    
+    # Initial message
+    print(f"[*] command=nmap -A -T4 {targetlistIP} ...")
+    
+    # Execute the nmap -A -T4 command on the specified network
+    nm.scan(hosts=targetlistIP, arguments='-A -T4')
+    
+    # Check if any hosts were found
+    if not nm.all_hosts():
+        print("[!] No devices found on the network.")
+        return
+    
+    # Iterate over each host found
+    for host in nm.all_hosts():
+        print("\n" + "="*50)
+        print(f"Host: {host}")
+        print(f"State: {nm[host].state()}")
+        
+        # Display MAC addresses, if available (common in local networks)
+        if 'mac' in nm[host]['addresses']:
+            print(f"MAC Address: {nm[host]['addresses']['mac']}")
+        
+        # Display OS detection results, if available
+        if 'osmatch' in nm[host] and nm[host]['osmatch']:
+            print("\nOS Detection:")
+            for os in nm[host]['osmatch']:
+                print(f"  Name: {os['name']}")
+                print(f"  Accuracy: {os['accuracy']}%")
+                if 'osclass' in os:
+                    for osc in os['osclass']:
+                        print(f"    Type: {osc['type']}")
+                        print(f"    Vendor: {osc['vendor']}")
+                        print(f"    OS Family: {osc['osfamily']}")
+        
+        # Iterate over the protocols found (tcp, udp, etc.)
+        for proto in nm[host].all_protocols():
+            print(f"\nProtocol: {proto.upper()}")
+            # Get all ports for this protocol
+            ports = sorted(nm[host][proto].keys())  # Sort ports for readability
+            if not ports:
+                print("  No ports found.")
+                continue
+            
+            # Iterate over each port
+            for port in ports:
+                port_info = nm[host][proto][port]
+                state = port_info['state']
+                print(f"  Port: {port}/{proto}")
+                print(f"    State: {state}")
+                
+                # Display service details if available
+                if 'name' in port_info and port_info['name']:
+                    print(f"    Service: {port_info['name']}")
+                if 'product' in port_info and port_info['product']:
+                    print(f"    Product: {port_info['product']}")
+                if 'version' in port_info and port_info['version']:
+                    print(f"    Version: {port_info['version']}")
+                if 'extrainfo' in port_info and port_info['extrainfo']:
+                    print(f"    Extra Info: {port_info['extrainfo']}")
+                
+                # Display script scan results if available (from -A)
+                if 'script' in port_info:
+                    print("    Script Results:")
+                    for script_id, output in port_info['script'].items():
+                        print(f"      {script_id}: {output.strip()}")
+
+
+inicial_logo = (""" ++------------------------------------------------------------------------------++
+                    ++------------------------------------------------------------------------------++
+                    || ██████╗ ███████╗███████╗███████╗███╗   ██╗███████╗██╗██╗   ██╗███████╗       ||
+                    ||██╔═══██╗██╔════╝██╔════╝██╔════╝████╗  ██║██╔════╝██║██║   ██║██╔════╝       ||
+                    ||██║   ██║█████╗  █████╗  █████╗  ██╔██╗ ██║███████╗██║██║   ██║█████╗         ||
+                    ||██║   ██║██╔══╝  ██╔══╝  ██╔══╝  ██║╚██╗██║╚════██║██║╚██╗ ██╔╝██╔══╝         ||
+                    ||╚██████╔╝██║     ██║     ███████╗██║ ╚████║███████║██║ ╚████╔╝ ███████╗       ||
+                    || ╚═════╝ ╚═╝     ╚═╝     ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝  ╚═══╝  ╚══════╝       ||
+                    ||        ████████╗ ██████╗  ██████╗ ██╗     ██╗███╗   ██╗ ██████╗              ||
+                    ||        ╚══██╔══╝██╔═══██╗██╔═══██╗██║     ██║████╗  ██║██╔════╝              ||
+                    ||           ██║   ██║   ██║██║   ██║██║     ██║██╔██╗ ██║██║  ███╗             ||
+                    ||           ██║   ██║   ██║██║   ██║██║     ██║██║╚██╗██║██║   ██║             ||
+                    ||           ██║   ╚██████╔╝╚██████╔╝███████╗██║██║ ╚████║╚██████╔╝             ||
+                    ||           ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚═╝╚═╝  ╚═══╝ ╚═════╝              ||
+                    ++------------------------------------------------------------------------------++
+                    ++------------------------------------------------------------------------------++
+""")
+
+# Initial menu
+inicial_menu = ("""  
+··································································································································································
+:░░░░░░░░░░░░░░░░░░░░░░░░░█░░░░░░░█░░░░░░░░░░░░░█░░░░░░░█░░░░░░░█░█░█▀▀░█░░░█▀▀░█▀█░█▄█░█▀▀░░░░░░░░░█░░░░░░░█░░░░░░░░░░░░░█░░░░░░░█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░:
+:░░░░░░░░░░░░░░░░░░░▄▄▄░▄▀░░▄▄▄░▄▀░░▄▄▄░░░▄▄▄░▄▀░░▄▄▄░▄▀░░▄▄▄░░░█▄█░█▀▀░█░░░█░░░█░█░█░█░█▀▀░░░▄▄▄░▄▀░░▄▄▄░▄▀░░▄▄▄░░░▄▄▄░▄▀░░▄▄▄░▄▀░░▄▄▄░░░░░░░░░░░░░░░░░░░░░░░░░░:
+:░░░░░░░░░░░░░░░░░░░░░░░▀░░░░░░░▀░░░░░░░░░░░░░▀░░░░░░░▀░░░░░░░░░▀░▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀░▀░▀▀▀░░░░░░░▀░░░░░░░▀░░░░░░░░░░░░░▀░░░░░░░▀░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░:
+:░░░░░░░░░░░░░░░░░░░▀█▀░█░█░█▀█░█▀▀░░░▀█▀░█░█░█▀▀░░░▀█▀░█▀▄░░░█▀█░█▀▄░░░█░█░█▀▄░▀█▀░▀█▀░█▀▀░░░█░█░█▀█░█░█░█▀▄░░░█▀█░█▀█░▀█▀░▀█▀░█▀█░█▀█░░░░                      :
+:░░░░░░░░░░░░░░░░░░░░█░░░█░░█▀▀░█▀▀░░░░█░░█▀█░█▀▀░░░░█░░█░█░░░█░█░█▀▄░░░█▄█░█▀▄░░█░░░█░░█▀▀░░░░█░░█░█░█░█░█▀▄░░░█░█░█▀▀░░█░░░█░░█░█░█░█░░▀░                      :
+:░░░░░░░░░░░░░░░░░░░░▀░░░▀░░▀░░░▀▀▀░░░░▀░░▀░▀░▀▀▀░░░▀▀▀░▀▀░░░░▀▀▀░▀░▀░░░▀░▀░▀░▀░▀▀▀░░▀░░▀▀▀░░░░▀░░▀▀▀░▀▀▀░▀░▀░░░▀▀▀░▀░░░░▀░░▀▀▀░▀▀▀░▀░▀░░▀░                      :
+:░░░░░░░░░░░░░░░░░░░░░▀█░░░░░█▀▄░█▀▀░█▀▀░▀█▀░█▀█░█▀▀░░░▀█▀░█▀█░█▀▄░█▀▀░█▀▀░▀█▀░░░▄▀░░▀█▀░█▀█░█▀▄░█▀▀░█▀▀░▀█▀░▀█▀░█▀█░▀▄░                                         :
+:░░░░░░░░░░░░░░░░░░░░░░█░░░░░█░█░█▀▀░█▀▀░░█░░█░█░█▀▀░░░░█░░█▀█░█▀▄░█░█░█▀▀░░█░░░░█░░░░█░░█▀█░█▀▄░█░█░█▀▀░░█░░░█░░█▀▀░░█░                                         :
+:░░░░░░░░░░░░░░░░░░░░░▀▀▀░▀░░▀▀░░▀▀▀░▀░░░▀▀▀░▀░▀░▀▀▀░░░░▀░░▀░▀░▀░▀░▀▀▀░▀▀▀░░▀░░░░░▀░░░▀░░▀░▀░▀░▀░▀▀▀░▀▀▀░░▀░░▀▀▀░▀░░░▀░░                                         :
+:░░░░░░░░░░░░░░░░░░░░░▀▀▄░░░░█▀▀░█▀▀░█▀█░█▀█░█▀█░░░░                                                                                                             :
+:░░░░░░░░░░░░░░░░░░░░░▄▀░░░░░▀▀█░█░░░█▀█░█░█░█░█░░░░                                                                                                             :
+:░░░░░░░░░░░░░░░░░░░░░▀▀▀░▀░░▀▀▀░▀▀▀░▀░▀░▀░▀░▀░▀░░░░                                                                                                             :
+:░░░░░░░░░░░░░░░░░░░░░▀▀█░░░░█▀▀░█░█░█▀█░█░░░█▀█░▀█▀░▀█▀░█▀█░▀█▀░▀█▀░█▀█░█▀█                                                                                     :
+:░░░░░░░░░░░░░░░░░░░░░░▀▄░░░░█▀▀░▄▀▄░█▀▀░█░░░█░█░░█░░░█░░█▀█░░█░░░█░░█░█░█░█                                                                                     :
+:░░░░░░░░░░░░░░░░░░░░░▀▀░░▀░░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀░▀▀▀░░▀░░▀░▀░░▀░░▀▀▀░▀▀▀░▀░▀                                                                                     :
+:░░░░░░░░░░░░░░░░░░░░░█░█░░░░█▀▀░█░█░█▀█░█░█░░░█▀█░█▀█░▀█▀░▀█▀░█▀█░█▀█░█▀▀                                                                                       :
+:░░░░░░░░░░░░░░░░░░░░░░▀█░░░░▀▀█░█▀█░█░█░█▄█░░░█░█░█▀▀░░█░░░█░░█░█░█░█░▀▀█                                                                                       :
+:░░░░░░░░░░░░░░░░░░░░░░░▀░▀░░▀▀▀░▀░▀░▀▀▀░▀░▀░░░▀▀▀░▀░░░░▀░░▀▀▀░▀▀▀░▀░▀░▀▀▀                                                                                       :
+··································································································································································
+
+                                            """)
+
+emptylist = ("""
++=====================================================+
+|     \│/  ╔═╗╔╦╗╔═╗╔╦╗╦ ╦  ╦╔═╗  ╦  ╦╔═╗╔╦╗  \│/     |
+|     ─ ─  ║╣ ║║║╠═╝ ║ ╚╦╝  ║╠═╝  ║  ║╚═╗ ║   ─ ─     |
+|     /│\  ╚═╝╩ ╩╩   ╩  ╩   ╩╩    ╩═╝╩╚═╝ ╩   /│\     |
+| ╔╦╗╦ ╦╔═╗╔═╗  ╔╦╗╦ ╦╔═╗  ╦╔═╗  ╔═╗╔╦╗╔╦╗╦═╗╔═╗╔═╗╔═╗|
+|  ║ ╚╦╝╠═╝║╣    ║ ╠═╣║╣   ║╠═╝  ╠═╣ ║║ ║║╠╦╝║╣ ╚═╗╚═╗|
+|  ╩  ╩ ╩  ╚═╝   ╩ ╩ ╩╚═╝  ╩╩    ╩ ╩═╩╝═╩╝╩╚═╚═╝╚═╝╚═╝|
+|   ╔═╗╦═╗  ╔╗ ╔═╗╔═╗╦╔═  ╔╦╗╔═╗  ╦═╗╔═╗╔╦╗╦ ╦╦═╗╔╗╔  |
+|   ║ ║╠╦╝  ╠╩╗╠═╣║  ╠╩╗   ║ ║ ║  ╠╦╝║╣  ║ ║ ║╠╦╝║║║  |
+|   ╚═╝╩╚═  ╚═╝╩ ╩╚═╝╩ ╩   ╩ ╚═╝  ╩╚═╚═╝ ╩ ╚═╝╩╚═╝╚╝  |
++=====================================================+
+""")
+
+
+
+
+
+
+print(inicial_logo)
+print(inicial_menu)
+first = input("INPUT:")
+ini = 1  # Initialize `ini` to 1 to enter the loop
+
+while ini > 0:
+    if first == '1' or first == 'TargetIP' or first == 'Define Target':
+        addtarget = input("Target IP:")    
+        targetlistIP.append(addtarget)
+        print("Target List:")
+        print(targetlistIP)
+        # Return to the initial menu after defining the target
+        first = input("INPUT:")
+
+    elif first == "2" or first == "Scann":
+        while True:
+            scan_menu = ("""TYPE OPTION:
+                1.ARP_SCAN
+                2.NMAP_SCAN
+                3.gobuster
+               type "back" to return
+              /-/-/-/-/-/-/-/""")
+            print(scan_menu)
+            input_scan = input("TYPE OPTION:")
+            if input_scan == "back" or input_scan == "BACK" or input_scan == "Back":
+                break  
+            elif input_scan == "1" or input_scan == "1.ARP_SCAN" or input_scan == "ARP_SCAN":
+                if len(targetlistIP) > 0:
+                    arp_scan(targetlistIP[0])  # Perform ARP scan on the first IP in the list
+                else:
+                    print(emptylist)
+                    input_ipscan = input("IP NUMBER: ").lower()
+                    if input_ipscan == "back":
+                        break  # Return to the scan menu
+                    else:
+                        targetlistIP.append(input_ipscan)
+                        print(f"TARGE: {targetlistIP}")
+
+            elif input_scan == "2" or input_scan == "2.NMAP_SCAN" or input_scan == "NMAP_SCAN":
+                print("""NMAP OPTIONS 
+                         .1 TCP,O.S. AND SERVICES SCANNING (BASIC)
+                         .2 SCRIPTS
+                         .3 TCP PORT SCANNING WITH VULNERABILITIES SEARCH
+                         .4 TYPE "back" TO RETURN """)  # Add NMAP_SCAN logic here
+                
+                nmap_input=input("Choose Option:").lower()
+
+
+                while True:
+                    if nmap_input == "back":
+                        break
+                    if nmap_input == "1" or nmap_input == ".1" or nmap_input == "basic":
+                       while True: 
+                                if len(targetlistIP) > 0:
+                                    run_nmap_scan1(targetlistIP)
+                                    break
+                                else:
+                                    print(emptylist)
+                                    input_IPnmap=input("Type the IP:").lower()
+                                if len(input_IPnmap) == 0 or input_IPnmap == "back":
+                                    break 
+                                if len(input_IPnmap) > 0:
+                                    targetlistIP.append(input_IPnmap)
+                                #1  run_nmap_scan1(targetlistIP)
+                 
+                    if nmap_input == "2" or nmap_input == "script" or nmap_input == "SCRIPT":
+                        print(""" 1.Vulnerability Detection:
+                                        http-sql-injection: Attempts to identify SQL injection vulnerabilities in web applications.
+                                        ftp-anon: Checks if the FTP service allows anonymous access.
+                                   2.Local Network:
+                                        NMAP local network     """
+                        )
+                        input_script=input("INPUT:").lower()
+                        if input_script == "1" or input_script == "Vulnerability Detection":
+                         while True:
+                            #print(len(targetlistIP))                           
+                                
+                                if len(targetlistIP) > 0:
+                                    print("Running Nmap scripts for vulnerability detection...")
+                                    #for c in TargetlistIP:
+                                      #run_nmap_scripts1(targetlistIP[c])                                      
+                                    run_nmap_scripts1(targetlistIP[0])
+                                    break
+                                else: 
+                                    print(emptylist)
+                                    input_script=input("INPUT:")
+                                if  len(input_script) == 0 or input_script == "back" or input_script == "BACK":
+                                    break
+
+                                if len(input_script) > 0:                                   
+                                    targetlistIP.append(input_script)
+                                    print(f"IP number {input_script} added ")
+                                    
+                        if input_script == "2" or input_script == "Local network" or input_script == "Local":
+                            while True:
+                                       if len(targetlistIP) > 0:
+                                           run_nmap_scrpts2(targetlistIP[0])
+
+
+                                       elif len(targetlistIP) == 0:
+                                              print(emptylist)
+                                              input_script=input("INPUT:")
+                                              if input_script == "BACK" or input_script == "BACK" or input_script == "Back":
+                                                   break
+                                   
+                                              else:
+                                                   targetlistIP.append(input_script)
+                                                   print(f"IP number {input_script} added ")
