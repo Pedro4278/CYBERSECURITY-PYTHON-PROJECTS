@@ -2,7 +2,109 @@ import nmap
 from pymetasploit3.msfrpc import MsfRpcClient
 from scapy.all import ARP, Ether, srp
 import subprocess
-targetlistIP = []  # Initialize the IP list outside the loop
+
+
+targetlistIP = [] 
+
+def scan_network(targetlistIP):
+    nm = nmap.PortScanner()
+    
+    # Se `target` for uma lista, converte para string
+    if isinstance(targetlistIP, list):
+        target = ",".join(targetlistIP)  # Converte a lista para uma string separada por vírgulas
+
+    # Se for um range de rede, usa varredura ARP
+    if "/24" in target or "*" in target:
+        print(f"[*] Performing ARP scan on {targetlistIP} to detect live hosts...")
+        nm.scan(hosts=target, arguments='-sn')  # -sn: Ping scan (não faz scan de portas)
+    else:
+        print(f"[*] Scanning {target} for open ports and vulnerabilities...")
+        nm.scan(hosts=target, arguments='-sV --script vuln')
+
+    return nm
+ #def scan_network(targetlistIP):
+  #  nm = nmap.PortScanner()
+   # nm.scan(targetlistIP, arguments='-sV --script vuln')
+    #return nm
+
+def search_exploits(service, version):
+    result = subprocess.run(['searchsploit', service, version], capture_output=True, text=True)
+    return result.stdout
+
+def execute_metasploit_exploit(exploit_module, targetlistIP, port):
+    """Executa um exploit do Metasploit contra o alvo."""
+    msf_command = f"""
+    msfconsole -q -x "
+    use {exploit_module};
+    set RHOSTS {targetlistIP};
+    set RPORT {port};
+    exploit;
+    exit"
+    """
+    print(f"[*] Executando Metasploit: {exploit_module} contra {target}:{port}")
+    result = subprocess.run(['bash', '-c', msf_command], capture_output=True, text=True)
+    print(f"[*] Resultado do Metasploit:\n{result.stdout}")
+    if result.stderr:
+        print(f"[!] Erros:\n{result.stderr}")
+
+def aggressive_scan(targetlistIP):
+    print(f"[*] Iniciando varredura agressiva em {targetlistIP}...")
+    scan_result = scan_network(targetlistIP)
+    
+    for host in scan_result.all_hosts():
+        print(f"[*] Analisando host: {host}")
+        for proto in scan_result[host].all_protocols():
+            ports = scan_result[host][proto].keys()
+            for port in ports:
+                service = scan_result[host][proto][port]['name']
+                version = scan_result[host][proto][port]['version']
+                print(f"[+] Serviço detectado: {service} {version}")
+                
+                # Busca por exploits
+                exploits = search_exploits(service, version)
+                if exploits and "No Results" not in exploits:
+                    print(f"[!] Exploits encontrados:\n{exploits}")
+                    if confirm_execution():
+                        # Extrair o módulo Metasploit do searchsploit (exemplo simplificado)
+                        exploit_module = extract_metasploit_module(exploits)
+                        if exploit_module:
+                            print(f"[*] Executando exploit para {service} {version}...")
+                            execute_metasploit_exploit(exploit_module, host, port)
+                        else:
+                            print("[!] Nenhum módulo Metasploit identificado automaticamente.")
+                    else:
+                        print("[*] Exploit não executado.")
+                else:
+                    print("[*] Nenhum exploit encontrado.")
+
+def confirm_execution():
+    response = input("Deseja executar o exploit? (s/n): ").lower()
+    return response == 's'
+
+def extract_metasploit_module(exploits_output):
+    """Extrai um módulo Metasploit da saída do searchsploit (simplificado)."""
+    lines = exploits_output.splitlines()
+    for line in lines:
+        if "Metasploit" in line and "|" in line:
+            # Exemplo: "Apache 2.4.49 - exploit/multi/http/cve_2021_41773"
+            parts = line.split("|")
+            if len(parts) > 1:
+                module = parts[0].strip().lower().replace(" ", "/").replace("-", "_")
+                if module.startswith("exploit/"):
+                    return module
+                return f"exploit/{module}"
+    return None
+
+
+
+
+#########################################################################3
+
+
+
+
+
+
 
 
 # Function to perform an ARP scan
@@ -60,6 +162,7 @@ def run_nmap_scripts1(targetlistIP):
         print(f"Host: {host} ({nm[host].hostname()})")
         print(f"State: {nm[host].state()}")
 
+#NMAP local network
 def run_nmap_scrpts2(targetlistIP):
     # Initialize the Nmap PortScanner object
     nm = nmap.PortScanner()
@@ -129,6 +232,10 @@ def run_nmap_scrpts2(targetlistIP):
                     for script_id, output in port_info['script'].items():
                         print(f"      {script_id}: {output.strip()}")
 
+#NMAP and exploit
+
+
+
 
 inicial_logo = (""" ++------------------------------------------------------------------------------++
                     ++------------------------------------------------------------------------------++
@@ -194,19 +301,29 @@ emptylist = ("""
 
 print(inicial_logo)
 print(inicial_menu)
-first = input("INPUT:")
+ # Initialize the IP list outside the loop
 ini = 1  # Initialize `ini` to 1 to enter the loop
-
+first = input("INPUT:").lower()
 while ini > 0:
-    if first == '1' or first == 'TargetIP' or first == 'Define Target':
-        addtarget = input("Target IP:")    
-        targetlistIP.append(addtarget)
-        print("Target List:")
-        print(targetlistIP)
-        # Return to the initial menu after defining the target
-        first = input("INPUT:")
 
-    elif first == "2" or first == "Scann":
+    if first == '1' or first == 'targetIP' or first == 'define target':
+       addtarget = input("Target IP:").lower()
+       while True:
+        if addtarget == 'back':
+         print(inicial_menu)
+         #first = input("INPUT:")
+         first = "return" # print the main Input 
+         break
+        #addtarget = input("Target IP:")    
+        targetlistIP.append(addtarget)
+        print(f"Target List: {targetlistIP}")
+        first = "return" # print the main Input 
+        break
+        
+        
+        
+
+    elif first == "2" or first == "scann":
         while True:
             scan_menu = ("""TYPE OPTION:
                 1.ARP_SCAN
@@ -300,3 +417,57 @@ while ini > 0:
                                               else:
                                                    targetlistIP.append(input_script)
                                                    print(f"IP number {input_script} added ")
+                            
+                                
+
+               
+                                 
+
+
+                    
+
+
+            elif input_scan == "3" or input_scan == "3.gobuster" or input_scan == "gobuster":
+                print("gobuster selected.")  # Add gobuster logic here
+            else:
+                print("Invalid option. Try again.")
+        # Return to the initial menu after exiting the scan menu
+        first = input("INPUT:")
+    
+
+    elif first == "3" or first == "exploit":
+        while True:
+                print("""CHOOSE YOUR OPTION
+                        1. ANALYSE AND EXPLOIT """)
+                
+                input_exploit=input("TYPE OPTION:")
+
+                if input_exploit == "back":
+                    break
+                
+                if input_exploit == "1":
+                  while True:
+                    targetlistIP=[]
+                    print("""That command will analyse and, in case of find a vulnerabilitie, exploit the target
+                    You can choose 3 different options:
+                    Usage example:
+                                    set all devices in a subnet: #.#.#.#/24
+                                    set on multiple devices: #.#.#.*
+                                    set on a single device: #.#.#.#
+                                    Set up your target IP according with your desired option""")
+                    input_exploit=input("TYPE OPTION:")  
+                    targetlistIP.append(input_exploit)
+                    if len(targetlistIP) > 0:
+                     aggressive_scan(targetlistIP)
+
+    
+    elif first == "return":
+     print(inicial_menu)
+     first = input("INPUT_IF") 
+    
+    #else:
+     #   print("Invalid option. Try again.")
+        
+      #3
+      #   first = input("INPUT:")
+
