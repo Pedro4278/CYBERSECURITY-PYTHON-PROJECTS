@@ -12,16 +12,30 @@ def scan_network(targetlistIP):
     # Se `target` for uma lista, converte para string
     if isinstance(targetlistIP, list):
         target = ",".join(targetlistIP)  # Converte a lista para uma string separada por vírgulas
+    else:
+        target = targetlistIP
 
     # Se for um range de rede, usa varredura ARP
     if "/24" in target or "*" in target:
-        print(f"[*] Performing ARP scan on {targetlistIP} to detect live hosts...")
-        nm.scan(hosts=target, arguments='-sn')  # -sn: Ping scan (não faz scan de portas)
+        nm.scan(hosts=target, arguments='-sn')  # Apenas descoberta de hosts
+        live_hosts = nm.all_hosts()
+        print(f"[*] Scanning {targetlistIP} for open ports and vulnerabilities...")
+        nm.scan(hosts=",".join(live_hosts), arguments='-sV --script vuln')  # Varredura nos hosts ativos
     else:
         print(f"[*] Scanning {target} for open ports and vulnerabilities...")
         nm.scan(hosts=target, arguments='-sV --script vuln')
-
+    
+    # Print the scan results
+    for host in nm.all_hosts():
+        print(f"Host: {host}")
+        for proto in nm[host].all_protocols():
+            print(f"Protocol: {proto}")
+            lport = nm[host][proto].keys()
+            for port in lport:
+                print(f"Port: {port}\tState: {nm[host][proto][port]['state']}")
+    
     return nm
+
  #def scan_network(targetlistIP):
   #  nm = nmap.PortScanner()
    # nm.scan(targetlistIP, arguments='-sV --script vuln')
@@ -41,7 +55,7 @@ def execute_metasploit_exploit(exploit_module, targetlistIP, port):
     exploit;
     exit"
     """
-    print(f"[*] Executando Metasploit: {exploit_module} contra {target}:{port}")
+    print(f"[*] Executando Metasploit: {exploit_module} contra {targetlistIP[0]}:{port}")
     result = subprocess.run(['bash', '-c', msf_command], capture_output=True, text=True)
     print(f"[*] Resultado do Metasploit:\n{result.stdout}")
     if result.stderr:
@@ -95,7 +109,20 @@ def extract_metasploit_module(exploits_output):
                 return f"exploit/{module}"
     return None
 
+def get_target_ips(targetlistIP):
+    print(emptylist)
+    print("Type the IP number or type 'back' to return - type 'run' to start the scan")
+    while True:
+        input_script = input("Target List:")
 
+        if input_script == "run":
+            print(f"Target List: {targetlistIP}")
+            break
+        if input_script == "back":
+            break
+        else:
+            targetlistIP.append(input_script)
+            print(f"IP number {input_script} added ")
 
 
 #########################################################################3
@@ -304,15 +331,23 @@ print(inicial_menu)
  # Initialize the IP list outside the loop
 ini = 1  # Initialize `ini` to 1 to enter the loop
 first = input("INPUT:").lower()
-while ini > 0:
+if first == "phone" or first == "phone mode": # When the program runs on the phone, the ASCII art got messed up.
+    print("""-/-/-/ WELCOME -/-/-/
+                1. DEFINE TARGET 
+                2. SCANN
+                3. EXPLOITATION
+                4. SHOW OPTIONS""")
+    first = input("INPUT:").lower()
+
+while True:  
+
 
     if first == '1' or first == 'targetIP' or first == 'define target':
        addtarget = input("Target IP:").lower()
        while True:
         if addtarget == 'back':
          print(inicial_menu)
-         #first = input("INPUT:")
-         first = "return" # print the main Input 
+         first = input("INPUT:").lower()
          break
         #addtarget = input("Target IP:")    
         targetlistIP.append(addtarget)
@@ -320,7 +355,7 @@ while ini > 0:
         first = "return" # print the main Input 
         break
         
-        
+       
         
 
     elif first == "2" or first == "scann":
@@ -334,6 +369,8 @@ while ini > 0:
             print(scan_menu)
             input_scan = input("TYPE OPTION:")
             if input_scan == "back" or input_scan == "BACK" or input_scan == "Back":
+                print(inicial_menu)
+                first = input("INPUT: ")
                 break  
             elif input_scan == "1" or input_scan == "1.ARP_SCAN" or input_scan == "ARP_SCAN":
                 if len(targetlistIP) > 0:
@@ -384,17 +421,38 @@ while ini > 0:
                         input_script=input("INPUT:").lower()
                         if input_script == "1" or input_script == "Vulnerability Detection":
                          while True:
-                            #print(len(targetlistIP))                           
-                                
+                                                     
+                                if input_script == "back":
+                                    break
+
                                 if len(targetlistIP) > 0:
                                     print("Running Nmap scripts for vulnerability detection...")
-                                    #for c in TargetlistIP:
-                                      #run_nmap_scripts1(targetlistIP[c])                                      
-                                    run_nmap_scripts1(targetlistIP[0])
-                                    break
+                                    if len(targetlistIP) >= 1:
+                                        print(f"Multiple targets detected. Running on the target:{targetlistIP[0]} first")
+                                        for c in targetlistIP:
+                                          run_nmap_scripts1(c)  
+                                          targetlistIP.remove(c)
+                                          print ("Starting on the next target")
+                                    else:
+                                      
+                                      run_nmap_scripts1(targetlistIP[0])
+                                      break
                                 else: 
-                                    print(emptylist)
-                                    input_script=input("INPUT:")
+                                   print(emptylist)
+                                   print("- Type 'run' to start the scan")
+                                   while True: 
+                                    
+                                    
+                                    input_script=input("Target List:")
+
+                                    if input_script == "run":
+                                        print(f"Target List: {targetlistIP}")                                        
+                                        break
+                                    if input_script == "back":
+                                        break
+                                    else:
+                                       targetlistIP.append(input_script)
+                                       print(f"IP number {input_script} added ")
                                 if  len(input_script) == 0 or input_script == "back" or input_script == "BACK":
                                     break
 
@@ -443,6 +501,8 @@ while ini > 0:
                 input_exploit=input("TYPE OPTION:")
 
                 if input_exploit == "back":
+                    print(inicial_menu)
+                    first = input("INPUT: ")
                     break
                 
                 if input_exploit == "1":
@@ -451,7 +511,7 @@ while ini > 0:
                     print("""That command will analyse and, in case of find a vulnerabilitie, exploit the target
                     You can choose 3 different options:
                     Usage example:
-                                    set all devices in a subnet: #.#.#.#/24
+                                    set all devices in a subnet: #.#.#.0/24 
                                     set on multiple devices: #.#.#.*
                                     set on a single device: #.#.#.#
                                     Set up your target IP according with your desired option""")
@@ -461,9 +521,7 @@ while ini > 0:
                      aggressive_scan(targetlistIP)
 
     
-    elif first == "return":
-     print(inicial_menu)
-     first = input("INPUT_IF") 
+    
     
     #else:
      #   print("Invalid option. Try again.")
@@ -471,3 +529,5 @@ while ini > 0:
       #3
       #   first = input("INPUT:")
 
+
+  
